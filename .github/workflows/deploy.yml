@@ -30,6 +30,13 @@ jobs:
       - name: Create credentials file
         run: |
           echo '${{ secrets.GOOGLE_CREDENTIALS_JSON }}' > credentials.json
+          # Verify the credentials file is not empty
+          if [ ! -s credentials.json ]; then
+            echo "❌ Error: GOOGLE_CREDENTIALS_JSON secret is empty or not set!"
+            echo "Please add your Google service account credentials to GitHub secrets."
+            exit 1
+          fi
+          echo "✅ Credentials file created successfully"
 
       - name: Create .env file
         run: |
@@ -38,6 +45,21 @@ jobs:
           echo "PHONE_NUMBER=${{ secrets.PHONE_NUMBER }}" >> .env
           echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> .env
           echo "GOOGLE_SHEETS_CREDS=credentials.json" >> .env
+
+          # Verify required secrets are set
+          if [ -z "${{ secrets.TELEGRAM_API_ID }}" ]; then
+            echo "❌ Error: TELEGRAM_API_ID secret is not set!"
+            exit 1
+          fi
+          if [ -z "${{ secrets.TELEGRAM_API_HASH }}" ]; then
+            echo "❌ Error: TELEGRAM_API_HASH secret is not set!"
+            exit 1
+          fi
+          if [ -z "${{ secrets.PHONE_NUMBER }}" ]; then
+            echo "❌ Error: PHONE_NUMBER secret is not set!"
+            exit 1
+          fi
+          echo "✅ Environment variables created successfully"
 
       - name: Generate static site
         run: |
