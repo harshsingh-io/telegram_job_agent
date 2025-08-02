@@ -10,9 +10,6 @@ import shutil
 from datetime import datetime
 from jinja2 import Template
 
-# Import your existing dashboard
-from web_dashboard import WebDashboard
-
 def generate_static_site():
     """Generate static files for GitHub Pages"""
     
@@ -22,18 +19,56 @@ def generate_static_site():
         shutil.rmtree(output_dir)
     os.makedirs(output_dir)
     
-    # Initialize dashboard to get data
-    dashboard = WebDashboard()
-    
-    # Get all data
-    print("📊 Fetching data from Google Sheets...")
-    relevant_data, uncat_data = dashboard.get_all_data()
-    all_data = relevant_data + uncat_data
+    # Try to get data from dashboard, with fallback
+    try:
+        # Import dashboard only when we need it
+        from web_dashboard import WebDashboard
+        
+        # Initialize dashboard to get data
+        dashboard = WebDashboard()
+        
+        # Get all data
+        print("📊 Fetching data from Google Sheets...")
+        relevant_data, uncat_data = dashboard.get_all_data()
+        all_data = relevant_data + uncat_data
+        
+        # Get stats
+        stats = dashboard.get_stats()
+        
+        print(f"✅ Retrieved {len(all_data)} messages from Google Sheets")
+        
+    except Exception as e:
+        print(f"⚠️  Warning: Could not fetch fresh data from Google Sheets: {e}")
+        print("📄 Using existing data from docs/data.json if available...")
+        
+        # Try to load existing data
+        existing_data_file = os.path.join(output_dir, "data.json")
+        if os.path.exists("docs/data.json"):
+            with open("docs/data.json", 'r', encoding='utf-8') as f:
+                existing_data = json.load(f)
+                all_data = existing_data.get('messages', [])
+                stats = existing_data.get('stats', {
+                    'total_messages': 0,
+                    'relevant_jobs': 0,
+                    'uncategorized': 0,
+                    'today_count': 0
+                })
+            print(f"📊 Using existing data with {len(all_data)} messages")
+        else:
+            # Create sample data for demo
+            print("🆕 Creating sample data for demonstration...")
+            all_data = create_sample_data()
+            stats = {
+                'total_messages': len(all_data),
+                'relevant_jobs': len([m for m in all_data if m.get('Category') == 'Relevant']),
+                'uncategorized': len([m for m in all_data if m.get('Category') == 'Uncategorized']),
+                'today_count': 0
+            }
     
     # Generate data.json for client-side loading
     data_export = {
         'last_updated': datetime.now().isoformat(),
-        'stats': dashboard.get_stats(),
+        'stats': stats,
         'messages': all_data,
         'sources': []
     }
@@ -69,12 +104,137 @@ def generate_static_site():
     print("3. Set source to 'docs' folder")
     print("4. Configure your domain DNS")
 
+def create_sample_data():
+    """Create sample data for demonstration when Google Sheets is not accessible"""
+    sample_data = [
+        {
+            'Message ID': 'sample_001',
+            'Source Group': 'Sample Jobs Channel',
+            'Message Date': '2025-08-02',
+            'Message Time': '10:30:00',
+            'Full Message': '''🚀 Frontend Developer Position - Remote
+
+Company: TechCorp
+Experience: 0-2 Years (Freshers Welcome!)
+Location: Remote/Bangalore
+
+Skills Required:
+• React.js, JavaScript, HTML, CSS
+• Git, API Integration
+• Good communication skills
+
+Apply: https://techcorp.com/careers
+Contact: hr@techcorp.com
+
+#jobs #frontend #react #freshers #remote''',
+            'Category': 'Relevant',
+            'extracted_links': ['https://techcorp.com/careers'],
+            'formatted_message': '''**🚀 Frontend Developer Position - Remote**
+
+**Company:** TechCorp  
+**Experience:** 0-2 Years (Freshers Welcome!)  
+**Location:** Remote/Bangalore
+
+**Skills Required:**
+• React.js, JavaScript, HTML, CSS
+• Git, API Integration  
+• Good communication skills
+
+**Apply:** https://techcorp.com/careers  
+**Contact:** hr@techcorp.com
+
+#jobs #frontend #react #freshers #remote'''
+        },
+        {
+            'Message ID': 'sample_002',
+            'Source Group': 'Fresher Jobs Hub',
+            'Message Date': '2025-08-02',
+            'Message Time': '09:15:00',
+            'Full Message': '''💼 Python Developer Internship
+
+Company: DataTech Solutions
+Duration: 6 months with full-time conversion
+Stipend: ₹25,000/month
+
+Requirements:
+- Basic Python knowledge
+- Eager to learn Django/Flask
+- No prior experience required
+
+Apply here: https://datatech.careers/intern
+Deadline: 15th August
+
+#internship #python #django #freshers #bengaluru''',
+            'Category': 'Relevant',
+            'extracted_links': ['https://datatech.careers/intern'],
+            'formatted_message': '''**💼 Python Developer Internship**
+
+**Company:** DataTech Solutions  
+**Duration:** 6 months with full-time conversion  
+**Stipend:** ₹25,000/month
+
+**Requirements:**
+- Basic Python knowledge
+- Eager to learn Django/Flask
+- No prior experience required
+
+**Apply here:** https://datatech.careers/intern  
+**Deadline:** 15th August
+
+#internship #python #django #freshers #bengaluru'''
+        },
+        {
+            'Message ID': 'sample_003',
+            'Source Group': 'Tech Opportunities',
+            'Message Date': '2025-08-01',
+            'Message Time': '16:45:00',
+            'Full Message': '''📢 Senior Software Architect Position
+
+Company: Enterprise Solutions Inc.
+Experience: 8+ Years
+Location: Mumbai
+
+Looking for experienced architects with:
+- System design expertise
+- Team leadership experience
+- Cloud platforms (AWS/Azure)
+
+Apply: careers@enterprise.com
+Salary: ₹30-45 LPA
+
+#senior #architect #experienced #mumbai''',
+            'Category': 'Uncategorized',
+            'extracted_links': [],
+            'formatted_message': '''**📢 Senior Software Architect Position**
+
+**Company:** Enterprise Solutions Inc.  
+**Experience:** 8+ Years  
+**Location:** Mumbai
+
+Looking for experienced architects with:
+- System design expertise
+- Team leadership experience
+- Cloud platforms (AWS/Azure)
+
+**Apply:** careers@enterprise.com  
+**Salary:** ₹30-45 LPA
+
+#senior #architect #experienced #mumbai'''
+        }
+    ]
+    
+    return sample_data
+
 def create_static_html(output_dir, stats):
     """Create static HTML files"""
     
     # Read the existing template
-    with open('templates/index.html', 'r', encoding='utf-8') as f:
-        template_content = f.read()
+    try:
+        with open('templates/index.html', 'r', encoding='utf-8') as f:
+            template_content = f.read()
+    except FileNotFoundError:
+        print("❌ Error: templates/index.html not found!")
+        return
     
     # Create static version with JavaScript data loading
     static_html = template_content.replace(
