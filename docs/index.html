@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Telegram Job Dashboard</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+      rel="stylesheet"
+    />
+    <style>
+      .message-card {
+        transition: transform 0.2s;
+        cursor: pointer;
+      }
+      .message-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      }
+      .message-preview {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        word-wrap: break-word;
+      }
+      .message-preview.collapsed {
+        max-height: 80px;
+      }
+      .message-preview.expanded {
+        max-height: none;
+      }
+      .badge-relevant {
+        background-color: #28a745;
+      }
+      .badge-uncategorized {
+        background-color: #6c757d;
+      }
+      .loading {
+        text-align: center;
+        padding: 20px;
+      }
+      .stats-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+      }
+      .filter-section {
+        background-color: #f8f9fa;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+      }
+      .link-pill {
+        display: inline-block;
+        background-color: #e9ecef;
+        color: #495057;
+        padding: 2px 8px;
+        margin: 2px;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        text-decoration: none;
+        max-width: 200px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .link-pill:hover {
+        background-color: #007bff;
+        color: white;
+        text-decoration: none;
+      }
+      .read-more-btn {
+        color: #007bff;
+        cursor: pointer;
+        font-size: 0.875rem;
+        border: none;
+        background: none;
+        padding: 0;
+        text-decoration: underline;
+      }
+      .read-more-btn:hover {
+        color: #0056b3;
+      }
+      .markdown-content {
+        line-height: 1.6;
+      }
+      .markdown-content strong {
+        color: #495057;
+      }
+      .date-input-group {
+        position: relative;
+      }
+      .date-range-container {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+    </style>
+  </head>
+  <body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+      <div class="container">
+        <a class="navbar-brand" href="/">
+          <i class="fas fa-briefcase"></i> Telegram Job Dashboard
+        </a>
+        <div class="navbar-nav ms-auto">
+          <span class="navbar-text" id="lastUpdated">
+            <i class="fas fa-clock"></i> Loading...
+          </span>
+        </div>
+      </div>
+    </nav>
+
+    <div class="container mt-4">
+      <!-- Statistics Cards -->
+      <div class="row mb-4">
+        <div class="col-md-3">
+          <div class="card stats-card">
+            <div class="card-body text-center">
+              <h3 class="card-title">0</h3>
+              <p class="card-text">Total Messages</p>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="card bg-success text-white">
+            <div class="card-body text-center">
+              <h3 class="card-title">0</h3>
+              <p class="card-text">Relevant Jobs</p>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="card bg-secondary text-white">
+            <div class="card-body text-center">
+              <h3 class="card-title">0</h3>
+              <p class="card-text">Uncategorized</p>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="card bg-warning text-dark">
+            <div class="card-body text-center">
+              <h3 class="card-title">0</h3>
+              <p class="card-text">Today's Messages</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filters -->
+      <div class="filter-section">
+        <h5><i class="fas fa-filter"></i> Filters</h5>
+        <div class="row">
+          <div class="col-md-2">
+            <label for="categoryFilter" class="form-label">Category</label>
+            <select class="form-select" id="categoryFilter">
+              <option value="all">All Messages</option>
+              <option value="relevant">Relevant Jobs Only</option>
+              <option value="uncategorized">Uncategorized Only</option>
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label for="sourceFilter" class="form-label">Source Group</label>
+            <div class="dropdown">
+              <button
+                class="btn btn-outline-secondary dropdown-toggle w-100 text-start"
+                type="button"
+                id="sourceDropdown"
+                data-bs-toggle="dropdown"
+                aria-expanded="false"
+              >
+                <span id="sourceDropdownText">All Sources</span>
+              </button>
+              <ul
+                class="dropdown-menu w-100"
+                aria-labelledby="sourceDropdown"
+                id="sourceDropdownMenu"
+                style="max-height: 300px; overflow-y: auto"
+              >
+                <li>
+                  <div class="dropdown-item">
+                    <input
+                      class="form-check-input me-2"
+                      type="checkbox"
+                      value="all"
+                      id="source-all"
+                      checked
+                    />
+                    <label class="form-check-label" for="source-all"
+                      >All Sources</label
+                    >
+                  </div>
+                </li>
+                <li>
+                  <hr class="dropdown-divider" />
+                </li>
+                <!-- Source options will be populated here -->
+              </ul>
+            </div>
+            <input type="hidden" id="selectedSources" value="all" />
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Date Range</label>
+            <div class="date-range-container">
+              <input
+                type="date"
+                class="form-control"
+                id="startDate"
+                placeholder="Start Date"
+              />
+              <span>to</span>
+              <input
+                type="date"
+                class="form-control"
+                id="endDate"
+                placeholder="End Date"
+              />
+            </div>
+          </div>
+          <div class="col-md-3">
+            <label for="searchInput" class="form-label">Search</label>
+            <input
+              type="text"
+              class="form-control"
+              id="searchInput"
+              placeholder="Search messages..."
+            />
+          </div>
+        </div>
+        <div class="row mt-3">
+          <div class="col-md-12">
+            <button class="btn btn-primary" onclick="loadMessages()">
+              <i class="fas fa-search"></i> Apply Filters
+            </button>
+            <button class="btn btn-secondary ms-2" onclick="clearFilters()">
+              <i class="fas fa-times"></i> Clear
+            </button>
+            <button class="btn btn-info ms-2" onclick="refreshData()">
+              <i class="fas fa-sync-alt"></i> Refresh
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Messages Container -->
+      <div class="row">
+        <div class="col-md-12">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5>
+              Messages <span class="badge bg-primary" id="messageCount">0</span>
+            </h5>
+            <div>
+              <label for="perPageSelect" class="form-label me-2"
+                >Per Page:</label
+              >
+              <select
+                class="form-select d-inline-block w-auto"
+                id="perPageSelect"
+              >
+                <option value="20">20</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+              </select>
+            </div>
+          </div>
+
+          <div id="messagesContainer">
+            <div class="loading">
+              <i class="fas fa-spinner fa-spin fa-2x"></i>
+              <p>Loading messages...</p>
+            </div>
+          </div>
+
+          <!-- Pagination -->
+          <nav aria-label="Message pagination" class="mt-4">
+            <ul class="pagination justify-content-center" id="pagination"></ul>
+          </nav>
+        </div>
+      </div>
+    </div>
+
+    <!-- Message Modal -->
+    <div class="modal fade" id="messageModal" tabindex="-1">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Message Details</h5>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+            ></button>
+          </div>
+          <div class="modal-body" id="modalBody"></div>
+          <div class="modal-footer">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              data-bs-dismiss="modal"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script>
+      let currentPage = 1;
+      let totalPages = 1;
+
+      // Initialize dashboard
+      document.addEventListener("DOMContentLoaded", function () {
+        loadSources();
+        loadMessages();
+        updateLastUpdated();
+
+        // Add event listeners
+        document
+          .getElementById("perPageSelect")
+          .addEventListener("change", function () {
+            currentPage = 1;
+            loadMessages();
+          });
+
+        document
+          .getElementById("searchInput")
+          .addEventListener("keypress", function (e) {
+            if (e.key === "Enter") {
+              loadMessages();
+            }
+          });
+
+        // Set default date range (last 7 days)
+        const today = new Date();
+        const weekAgo = new Date();
+        weekAgo.setDate(today.getDate() - 7);
+
+        document.getElementById("endDate").value = today
+          .toISOString()
+          .split("T")[0];
+        document.getElementById("startDate").value = weekAgo
+          .toISOString()
+          .split("T")[0];
+      });
+
+      async function loadSources() {
+        try {
+          const response = await fetch("/api/sources");
+          const sourcesWithCounts = await response.json();
+
+          const sourceDropdownMenu =
+            document.getElementById("sourceDropdownMenu");
+
+          // Clear existing items except "All Sources" and divider
+          const existingItems = sourceDropdownMenu.querySelectorAll(
+            "li:not(:first-child):not(:nth-child(2))"
+          );
+          existingItems.forEach((item) => item.remove());
+
+          sourcesWithCounts.forEach((sourceData, index) => {
+            const li = document.createElement("li");
+            li.innerHTML = `
+              <div class="dropdown-item">
+                <input class="form-check-input me-2 source-checkbox" type="checkbox" 
+                       value="${sourceData.name}" id="source-${index}" 
+                       onchange="updateSourceSelection()">
+                <label class="form-check-label" for="source-${index}">
+                  ${sourceData.name} (${sourceData.count})
+                </label>
+              </div>
+            `;
+            sourceDropdownMenu.appendChild(li);
+          });
+
+          // Add event listener for "All Sources" checkbox
+          document
+            .getElementById("source-all")
+            .addEventListener("change", function () {
+              if (this.checked) {
+                // Uncheck all other checkboxes
+                document
+                  .querySelectorAll(".source-checkbox")
+                  .forEach((cb) => (cb.checked = false));
+              }
+              updateSourceSelection();
+            });
+        } catch (error) {
+          console.error("Error loading sources:", error);
+        }
+      }
+
+      function updateSourceSelection() {
+        const allSourcesCheckbox = document.getElementById("source-all");
+        const sourceCheckboxes = document.querySelectorAll(".source-checkbox");
+        const selectedSources = [];
+
+        // Check if any individual source is selected
+        let hasIndividualSelection = false;
+        sourceCheckboxes.forEach((checkbox) => {
+          if (checkbox.checked) {
+            selectedSources.push(checkbox.value);
+            hasIndividualSelection = true;
+          }
+        });
+
+        // If individual sources are selected, uncheck "All Sources"
+        if (hasIndividualSelection) {
+          allSourcesCheckbox.checked = false;
+        }
+
+        // If no individual sources selected and "All Sources" is not checked, check "All Sources"
+        if (!hasIndividualSelection && !allSourcesCheckbox.checked) {
+          allSourcesCheckbox.checked = true;
+        }
+
+        // Update the dropdown text and hidden input
+        updateDropdownText();
+        updateHiddenInput();
+      }
+
+      function updateDropdownText() {
+        const allSourcesCheckbox = document.getElementById("source-all");
+        const sourceCheckboxes = document.querySelectorAll(
+          ".source-checkbox:checked"
+        );
+        const dropdownText = document.getElementById("sourceDropdownText");
+
+        if (allSourcesCheckbox.checked) {
+          dropdownText.textContent = "All Sources";
+        } else if (sourceCheckboxes.length === 0) {
+          dropdownText.textContent = "All Sources";
+        } else if (sourceCheckboxes.length === 1) {
+          dropdownText.textContent =
+            sourceCheckboxes[0].nextElementSibling.textContent.split(" (")[0];
+        } else {
+          dropdownText.textContent = `${sourceCheckboxes.length} Sources Selected`;
+        }
+      }
+
+      function updateHiddenInput() {
+        const allSourcesCheckbox = document.getElementById("source-all");
+        const sourceCheckboxes = document.querySelectorAll(
+          ".source-checkbox:checked"
+        );
+        const selectedSourcesInput = document.getElementById("selectedSources");
+
+        if (allSourcesCheckbox.checked || sourceCheckboxes.length === 0) {
+          selectedSourcesInput.value = "all";
+        } else {
+          const selectedValues = Array.from(sourceCheckboxes).map(
+            (cb) => cb.value
+          );
+          selectedSourcesInput.value = selectedValues.join(",");
+        }
+      }
+
+      async function loadMessages() {
+        const container = document.getElementById("messagesContainer");
+        container.innerHTML =
+          '<div class="loading"><i class="fas fa-spinner fa-spin fa-2x"></i><p>Loading messages...</p></div>';
+
+        try {
+          const params = new URLSearchParams({
+            category: document.getElementById("categoryFilter").value,
+            source: document.getElementById("selectedSources").value, // Use hidden input instead of sourceFilter
+            start_date: document.getElementById("startDate").value,
+            end_date: document.getElementById("endDate").value,
+            search: document.getElementById("searchInput").value,
+            page: currentPage,
+            per_page: document.getElementById("perPageSelect").value,
+          });
+
+          const response = await fetch(`/api/data?${params}`);
+          const result = await response.json();
+
+          displayMessages(result.data);
+          updatePagination(result);
+          document.getElementById("messageCount").textContent = result.total;
+        } catch (error) {
+          console.error("Error loading messages:", error);
+          container.innerHTML =
+            '<div class="alert alert-danger">Error loading messages. Please try again.</div>';
+        }
+      }
+
+      function makeLinksClickable(text) {
+        const urlRegex = /(https?:\/\/[^\s<>"{}|\\^`\[\]]+)/g;
+        return text.replace(
+          urlRegex,
+          '<a href="$1" target="_blank" class="text-primary">$1</a>'
+        );
+      }
+
+      function truncateText(text, maxLength = 200) {
+        if (text.length <= maxLength) return text;
+        return text.substring(0, maxLength) + "...";
+      }
+
+      function createLinkPills(links) {
+        if (!links || links.length === 0) return "";
+
+        return (
+          links
+            .slice(0, 3)
+            .map((link) => {
+              const displayText =
+                link.length > 25 ? link.substring(0, 25) + "..." : link;
+              return `<a href="${link}" target="_blank" class="link-pill" title="${link}">${displayText}</a>`;
+            })
+            .join("") +
+          (links.length > 3
+            ? `<span class="link-pill bg-info text-white">+${
+                links.length - 3
+              } more</span>`
+            : "")
+        );
+      }
+
+      function displayMessages(messages) {
+        const container = document.getElementById("messagesContainer");
+
+        if (messages.length === 0) {
+          container.innerHTML =
+            '<div class="alert alert-info">No messages found matching your criteria.</div>';
+          return;
+        }
+
+        let html = "";
+        messages.forEach((message, index) => {
+          const categoryBadge =
+            message.Category === "Relevant"
+              ? "badge-relevant"
+              : "badge-uncategorized";
+          const messageText = message["Full Message"] || "";
+          const truncatedMessage = truncateText(messageText);
+          const isLong = messageText.length > 200;
+          const linkPills = createLinkPills(message.extracted_links);
+
+          // Convert markdown to HTML for better formatting
+          const formattedMessage = marked.parse(
+            message.formatted_message || messageText
+          );
+          const truncatedFormatted = marked.parse(
+            truncateText(message.formatted_message || messageText)
+          );
+
+          html += `
+                    <div class="card message-card mb-3">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h6 class="card-title mb-0">
+                                    <i class="fas fa-users"></i> ${
+                                      message["Source Group"]
+                                    }
+                                </h6>
+                                <span class="badge ${categoryBadge}">${
+            message.Category
+          }</span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <small class="text-muted">
+                                    <i class="fas fa-calendar"></i> ${
+                                      message["Message Date"]
+                                    } 
+                                    <i class="fas fa-clock ms-2"></i> ${
+                                      message["Message Time"]
+                                    }
+                                </small>
+                            </div>
+                            <div class="message-preview ${
+                              isLong ? "collapsed" : ""
+                            }" id="preview-${index}">
+                                <div class="markdown-content">
+                                    ${
+                                      isLong
+                                        ? truncatedFormatted
+                                        : formattedMessage
+                                    }
+                                </div>
+                            </div>
+                            ${
+                              isLong
+                                ? `
+                                <button class="read-more-btn mt-2" onclick="toggleReadMore(${index}, '${message["Message ID"]}')">
+                                    <i class="fas fa-chevron-down" id="icon-${index}"></i> Read More
+                                </button>
+                            `
+                                : ""
+                            }
+                            ${
+                              linkPills
+                                ? `
+                                <div class="mt-2">
+                                    <small class="text-muted d-block mb-1">
+                                        <i class="fas fa-link"></i> Links:
+                                    </small>
+                                    ${linkPills}
+                                </div>
+                            `
+                                : ""
+                            }
+                            <div class="mt-2">
+                                <button class="btn btn-sm btn-outline-primary" onclick="viewMessage('${
+                                  message["Message ID"]
+                                }')">
+                                    <i class="fas fa-eye"></i> View Details
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+        });
+
+        container.innerHTML = html;
+      }
+
+      function toggleReadMore(index, messageId) {
+        const preview = document.getElementById(`preview-${index}`);
+        const button = event.target.closest(".read-more-btn");
+        const icon = document.getElementById(`icon-${index}`);
+
+        if (preview.classList.contains("collapsed")) {
+          // Show full message
+          preview.classList.remove("collapsed");
+          preview.classList.add("expanded");
+          button.innerHTML =
+            '<i class="fas fa-chevron-up" id="icon-' +
+            index +
+            '"></i> Read Less';
+
+          // Load full formatted message
+          loadFullMessage(messageId, index);
+        } else {
+          // Show truncated message
+          preview.classList.remove("expanded");
+          preview.classList.add("collapsed");
+          button.innerHTML =
+            '<i class="fas fa-chevron-down" id="icon-' +
+            index +
+            '"></i> Read More';
+
+          // Reload truncated message
+          loadTruncatedMessage(messageId, index);
+        }
+      }
+
+      async function loadFullMessage(messageId, index) {
+        try {
+          const params = new URLSearchParams({
+            category: document.getElementById("categoryFilter").value,
+            source: document.getElementById("sourceFilter").value,
+            start_date: document.getElementById("startDate").value,
+            end_date: document.getElementById("endDate").value,
+            search: document.getElementById("searchInput").value,
+            page: currentPage,
+            per_page: document.getElementById("perPageSelect").value,
+          });
+
+          const response = await fetch(`/api/data?${params}`);
+          const result = await response.json();
+
+          const message = result.data.find(
+            (m) => m["Message ID"] === messageId
+          );
+          if (message) {
+            const preview = document.getElementById(`preview-${index}`);
+            const formattedMessage = marked.parse(
+              message.formatted_message || message["Full Message"]
+            );
+            preview.innerHTML = `<div class="markdown-content">${formattedMessage}</div>`;
+          }
+        } catch (error) {
+          console.error("Error loading full message:", error);
+        }
+      }
+
+      async function loadTruncatedMessage(messageId, index) {
+        try {
+          const params = new URLSearchParams({
+            category: document.getElementById("categoryFilter").value,
+            source: document.getElementById("sourceFilter").value,
+            start_date: document.getElementById("startDate").value,
+            end_date: document.getElementById("endDate").value,
+            search: document.getElementById("searchInput").value,
+            page: currentPage,
+            per_page: document.getElementById("perPageSelect").value,
+          });
+
+          const response = await fetch(`/api/data?${params}`);
+          const result = await response.json();
+
+          const message = result.data.find(
+            (m) => m["Message ID"] === messageId
+          );
+          if (message) {
+            const preview = document.getElementById(`preview-${index}`);
+            const truncatedFormatted = marked.parse(
+              truncateText(message.formatted_message || message["Full Message"])
+            );
+            preview.innerHTML = `<div class="markdown-content">${truncatedFormatted}</div>`;
+          }
+        } catch (error) {
+          console.error("Error loading truncated message:", error);
+        }
+      }
+
+      function updatePagination(result) {
+        totalPages = result.total_pages;
+        currentPage = result.page;
+
+        const pagination = document.getElementById("pagination");
+        let html = "";
+
+        // Previous button
+        html += `
+                <li class="page-item ${currentPage === 1 ? "disabled" : ""}">
+                    <a class="page-link" href="#" onclick="changePage(${
+                      currentPage - 1
+                    })">Previous</a>
+                </li>
+            `;
+
+        // Page numbers
+        const startPage = Math.max(1, currentPage - 2);
+        const endPage = Math.min(totalPages, currentPage + 2);
+
+        for (let i = startPage; i <= endPage; i++) {
+          html += `
+                    <li class="page-item ${i === currentPage ? "active" : ""}">
+                        <a class="page-link" href="#" onclick="changePage(${i})">${i}</a>
+                    </li>
+                `;
+        }
+
+        // Next button
+        html += `
+                <li class="page-item ${
+                  currentPage === totalPages ? "disabled" : ""
+                }">
+                    <a class="page-link" href="#" onclick="changePage(${
+                      currentPage + 1
+                    })">Next</a>
+                </li>
+            `;
+
+        pagination.innerHTML = html;
+      }
+
+      function changePage(page) {
+        if (page >= 1 && page <= totalPages) {
+          currentPage = page;
+          loadMessages();
+        }
+      }
+
+      async function viewMessage(messageId) {
+        window.open(`/message/${messageId}`, "_blank");
+      }
+
+      function clearFilters() {
+        document.getElementById("categoryFilter").value = "all";
+
+        // Reset multi-select source dropdown
+        document.getElementById("source-all").checked = true;
+        document
+          .querySelectorAll(".source-checkbox")
+          .forEach((cb) => (cb.checked = false));
+        updateSourceSelection();
+
+        document.getElementById("startDate").value = "";
+        document.getElementById("endDate").value = "";
+        document.getElementById("searchInput").value = "";
+        currentPage = 1;
+        loadMessages();
+      }
+
+      async function refreshData() {
+        await loadMessages();
+        location.reload();
+      }
+
+      function updateLastUpdated() {
+        const now = new Date();
+        document.getElementById(
+          "lastUpdated"
+        ).innerHTML = `<i class="fas fa-clock"></i> Updated: ${now.toLocaleTimeString()}`;
+      }
+    </script>
+  
+    <script>
+        // Load data from JSON file for GitHub Pages
+        let globalData = null;
+        
+        async function loadDataFromJSON() {
+            try {
+                const response = await fetch('./data.json');
+                globalData = await response.json();
+                
+                // Update stats
+                document.querySelector('.stats-card h3').textContent = globalData.stats.total_messages;
+                document.querySelectorAll('.card h3')[1].textContent = globalData.stats.relevant_jobs;
+                document.querySelectorAll('.card h3')[2].textContent = globalData.stats.uncategorized;
+                document.querySelectorAll('.card h3')[3].textContent = globalData.stats.today_count;
+                
+                // Update last updated time
+                const lastUpdated = new Date(globalData.last_updated);
+                document.getElementById('lastUpdated').innerHTML = 
+                    `<i class="fas fa-clock"></i> Updated: ${lastUpdated.toLocaleString()}`;
+                
+                // Load sources and messages
+                loadSourcesFromData();
+                loadMessagesFromData();
+                
+            } catch (error) {
+                console.error('Error loading data:', error);
+                document.getElementById('messagesContainer').innerHTML = 
+                    '<div class="alert alert-danger">Error loading data. Please try refreshing the page.</div>';
+            }
+        }
+        
+        function loadSourcesFromData() {
+            const sourceDropdownMenu = document.getElementById("sourceDropdownMenu");
+            
+            // Clear existing items except "All Sources" and divider
+            const existingItems = sourceDropdownMenu.querySelectorAll('li:not(:first-child):not(:nth-child(2))');
+            existingItems.forEach(item => item.remove());
+
+            globalData.sources.forEach((sourceData, index) => {
+                const li = document.createElement("li");
+                li.innerHTML = `
+                    <div class="dropdown-item">
+                        <input class="form-check-input me-2 source-checkbox" type="checkbox" 
+                               value="${sourceData.name}" id="source-${index}" 
+                               onchange="updateSourceSelection()">
+                        <label class="form-check-label" for="source-${index}">
+                            ${sourceData.name} (${sourceData.count})
+                        </label>
+                    </div>
+                `;
+                sourceDropdownMenu.appendChild(li);
+            });
+
+            // Add event listener for "All Sources" checkbox
+            document.getElementById('source-all').addEventListener('change', function() {
+                if (this.checked) {
+                    document.querySelectorAll('.source-checkbox').forEach(cb => cb.checked = false);
+                }
+                updateSourceSelection();
+            });
+        }
+        
+        function loadMessagesFromData() {
+            if (!globalData) return;
+            
+            // Filter and display messages based on current filters
+            const filteredData = filterMessages(globalData.messages);
+            displayMessages(filteredData.slice(0, 20)); // Show first 20
+        }
+        
+        function filterMessages(messages) {
+            const category = document.getElementById("categoryFilter").value;
+            const selectedSources = document.getElementById("selectedSources").value;
+            const startDate = document.getElementById("startDate").value;
+            const endDate = document.getElementById("endDate").value;
+            const search = document.getElementById("searchInput").value.toLowerCase();
+            
+            let filtered = messages;
+            
+            // Category filter
+            if (category === 'relevant') {
+                filtered = filtered.filter(m => m.Category === 'Relevant');
+            } else if (category === 'uncategorized') {
+                filtered = filtered.filter(m => m.Category === 'Uncategorized');
+            }
+            
+            // Source filter
+            if (selectedSources !== 'all' && selectedSources) {
+                const sources = selectedSources.split(',');
+                filtered = filtered.filter(m => sources.includes(m['Source Group']));
+            }
+            
+            // Date filter
+            if (startDate && endDate) {
+                filtered = filtered.filter(m => 
+                    m['Message Date'] >= startDate && m['Message Date'] <= endDate
+                );
+            }
+            
+            // Search filter
+            if (search) {
+                filtered = filtered.filter(m => 
+                    m['Full Message'].toLowerCase().includes(search) ||
+                    m['Source Group'].toLowerCase().includes(search)
+                );
+            }
+            
+            // Sort by date (latest first)
+            filtered.sort((a, b) => {
+                const dateA = new Date(a['Message Date'] + ' ' + a['Message Time']);
+                const dateB = new Date(b['Message Date'] + ' ' + b['Message Time']);
+                return dateB - dateA;
+            });
+            
+            return filtered;
+        }
+        
+        // Override the original loadMessages function
+        async function loadMessages() {
+            if (!globalData) {
+                await loadDataFromJSON();
+                return;
+            }
+            
+            const container = document.getElementById("messagesContainer");
+            container.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin fa-2x"></i><p>Filtering messages...</p></div>';
+            
+            setTimeout(() => {
+                const filteredData = filterMessages(globalData.messages);
+                displayMessages(filteredData.slice(0, parseInt(document.getElementById("perPageSelect").value)));
+                document.getElementById("messageCount").textContent = filteredData.length;
+            }, 100);
+        }
+        
+        // Override API calls to use local data
+        async function viewMessage(messageId) {
+            if (!globalData) return;
+            
+            const message = globalData.messages.find(m => m['Message ID'] === messageId);
+            if (message) {
+                // Create a simple modal or new page
+                const newWindow = window.open('', '_blank');
+                newWindow.document.write(`
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <title>Message Details</title>
+                        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+                    </head>
+                    <body>
+                        <div class="container mt-4">
+                            <h3>${message['Source Group']}</h3>
+                            <p><strong>Date:</strong> ${message['Message Date']} ${message['Message Time']}</p>
+                            <p><strong>Category:</strong> ${message.Category}</p>
+                            <div class="card">
+                                <div class="card-body">
+                                    <pre style="white-space: pre-wrap;">${message['Full Message']}</pre>
+                                </div>
+                            </div>
+                        </div>
+                    </body>
+                    </html>
+                `);
+            }
+        }
+        
+        // Initialize when page loads
+        document.addEventListener("DOMContentLoaded", function() {
+            loadDataFromJSON();
+            
+            // Set default date range (last 7 days)
+            const today = new Date();
+            const weekAgo = new Date();
+            weekAgo.setDate(today.getDate() - 7);
+            
+            document.getElementById("endDate").value = today.toISOString().split("T")[0];
+            document.getElementById("startDate").value = weekAgo.toISOString().split("T")[0];
+        });
+    </script>
+    
+</body>
+</html>
