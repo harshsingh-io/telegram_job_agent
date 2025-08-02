@@ -3,10 +3,10 @@ name: Deploy to GitHub Pages
 on:
   schedule:
     # Run daily at 6 AM UTC (adjust timezone as needed)
-    - cron: '0 6 * * *'
+    - cron: "0 6 * * *"
   workflow_dispatch: # Allow manual triggering
   push:
-    branches: [ main ]
+    branches: [main]
 
 # Add permissions for GitHub token
 permissions:
@@ -25,65 +25,65 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
-    
+
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-    
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.11'
-    
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install jinja2
-    
-    - name: Create credentials file
-      run: |
-        echo '${{ secrets.GOOGLE_CREDENTIALS_JSON }}' > credentials.json
-        # Verify the credentials file is not empty
-        if [ ! -s credentials.json ]; then
-          echo "⚠️  Warning: GOOGLE_CREDENTIALS_JSON secret is empty or not set!"
-          echo "Will use sample data for demonstration."
-        else
-          echo "✅ Credentials file created successfully"
-        fi
-    
-    - name: Create .env file
-      run: |
-        echo "TELEGRAM_API_ID=${{ secrets.TELEGRAM_API_ID }}" >> .env
-        echo "TELEGRAM_API_HASH=${{ secrets.TELEGRAM_API_HASH }}" >> .env
-        echo "PHONE_NUMBER=${{ secrets.PHONE_NUMBER }}" >> .env
-        echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> .env
-        echo "GOOGLE_SHEETS_CREDS=credentials.json" >> .env
-        
-        # Note missing secrets but don't fail
-        if [ -z "${{ secrets.TELEGRAM_API_ID }}" ]; then
-          echo "⚠️  Note: TELEGRAM_API_ID secret is not set - using sample data"
-        fi
-        if [ -z "${{ secrets.TELEGRAM_API_HASH }}" ]; then
-          echo "⚠️  Note: TELEGRAM_API_HASH secret is not set - using sample data"
-        fi
-        if [ -z "${{ secrets.PHONE_NUMBER }}" ]; then
-          echo "⚠️  Note: PHONE_NUMBER secret is not set - using sample data"
-        fi
-        echo "✅ Environment variables created"
-    
-    - name: Generate static site
-      run: |
-        python generate_static_site.py
-    
-    - name: Setup Pages
-      uses: actions/configure-pages@v4
-    
-    - name: Upload artifact
-      uses: actions/upload-pages-artifact@v3
-      with:
-        path: './docs'
-    
-    - name: Deploy to GitHub Pages
-      id: deployment
-      uses: actions/deploy-pages@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install jinja2
+
+      - name: Create credentials file
+        run: |
+          echo '${{ secrets.GOOGLE_CREDENTIALS_JSON }}' > credentials.json
+          # Verify the credentials file is not empty
+          if [ ! -s credentials.json ]; then
+            echo "⚠️  Warning: GOOGLE_CREDENTIALS_JSON secret is empty or not set!"
+            echo "Will use sample data for demonstration."
+          else
+            echo "✅ Credentials file created successfully"
+          fi
+
+      - name: Create .env file
+        run: |
+          echo "TELEGRAM_API_ID=${{ secrets.TELEGRAM_API_ID }}" >> .env
+          echo "TELEGRAM_API_HASH=${{ secrets.TELEGRAM_API_HASH }}" >> .env
+          echo "PHONE_NUMBER=${{ secrets.PHONE_NUMBER }}" >> .env
+          echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> .env
+          echo "GOOGLE_SHEETS_CREDS=credentials.json" >> .env
+
+          # Note missing secrets but don't fail
+          if [ -z "${{ secrets.TELEGRAM_API_ID }}" ]; then
+            echo "⚠️  Note: TELEGRAM_API_ID secret is not set - using sample data"
+          fi
+          if [ -z "${{ secrets.TELEGRAM_API_HASH }}" ]; then
+            echo "⚠️  Note: TELEGRAM_API_HASH secret is not set - using sample data"
+          fi
+          if [ -z "${{ secrets.PHONE_NUMBER }}" ]; then
+            echo "⚠️  Note: PHONE_NUMBER secret is not set - using sample data"
+          fi
+          echo "✅ Environment variables created"
+
+      - name: Generate static site
+        run: |
+          python generate_static_site.py
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: "./docs"
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

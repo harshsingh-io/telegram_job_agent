@@ -88,7 +88,7 @@ def generate_static_site():
     print(f"✅ Generated data.json with {len(all_data)} messages")
     
     # Create static HTML files
-    create_static_html(output_dir, data_export['stats'])
+    create_static_html(output_dir, data_export)
     
     # Copy assets
     copy_assets(output_dir)
@@ -225,7 +225,7 @@ Looking for experienced architects with:
     
     return sample_data
 
-def create_static_html(output_dir, stats):
+def create_static_html(output_dir, data_export):
     """Create static HTML files"""
     
     # Read the existing template
@@ -235,207 +235,52 @@ def create_static_html(output_dir, stats):
     except FileNotFoundError:
         print("❌ Error: templates/index.html not found!")
         return
-    
-    # Create static version with JavaScript data loading
-    static_html = template_content.replace(
-        '{{ stats.total_messages }}', '0'
-    ).replace(
-        '{{ stats.relevant_jobs }}', '0'
-    ).replace(
-        '{{ stats.uncategorized }}', '0'
-    ).replace(
-        '{{ stats.today_count }}', '0'
-    )
-    
-    # Add data loading script
-    data_loading_script = """
+
+    # Render the template with the stats data
+    template = Template(template_content)
+    rendered_html = template.render(stats=data_export['stats'])
+
+    # Add data loading script for static site
+    static_script = f"""
     <script>
-        // Load data from JSON file for GitHub Pages
-        let globalData = null;
-        
-        async function loadDataFromJSON() {
-            try {
-                const response = await fetch('./data.json');
-                globalData = await response.json();
-                
-                // Update stats
-                document.querySelector('.stats-card h3').textContent = globalData.stats.total_messages;
-                document.querySelectorAll('.card h3')[1].textContent = globalData.stats.relevant_jobs;
-                document.querySelectorAll('.card h3')[2].textContent = globalData.stats.uncategorized;
-                document.querySelectorAll('.card h3')[3].textContent = globalData.stats.today_count;
-                
-                // Update last updated time
-                const lastUpdated = new Date(globalData.last_updated);
-                document.getElementById('lastUpdated').innerHTML = 
-                    `<i class="fas fa-clock"></i> Updated: ${lastUpdated.toLocaleString()}`;
-                
-                // Load sources and messages
-                loadSourcesFromData();
-                loadMessagesFromData();
-                
-            } catch (error) {
-                console.error('Error loading data:', error);
-                document.getElementById('messagesContainer').innerHTML = 
-                    '<div class="alert alert-danger">Error loading data. Please try refreshing the page.</div>';
-            }
-        }
-        
-        function loadSourcesFromData() {
-            const sourceDropdownMenu = document.getElementById("sourceDropdownMenu");
-            
-            // Clear existing items except "All Sources" and divider
-            const existingItems = sourceDropdownMenu.querySelectorAll('li:not(:first-child):not(:nth-child(2))');
-            existingItems.forEach(item => item.remove());
-
-            globalData.sources.forEach((sourceData, index) => {
-                const li = document.createElement("li");
-                li.innerHTML = `
-                    <div class="dropdown-item">
-                        <input class="form-check-input me-2 source-checkbox" type="checkbox" 
-                               value="${sourceData.name}" id="source-${index}" 
-                               onchange="updateSourceSelection()">
-                        <label class="form-check-label" for="source-${index}">
-                            ${sourceData.name} (${sourceData.count})
-                        </label>
-                    </div>
-                `;
-                sourceDropdownMenu.appendChild(li);
-            });
-
-            // Add event listener for "All Sources" checkbox
-            document.getElementById('source-all').addEventListener('change', function() {
-                if (this.checked) {
-                    document.querySelectorAll('.source-checkbox').forEach(cb => cb.checked = false);
-                }
-                updateSourceSelection();
-            });
-        }
-        
-        function loadMessagesFromData() {
-            if (!globalData) return;
-            
-            // Filter and display messages based on current filters
-            const filteredData = filterMessages(globalData.messages);
-            displayMessages(filteredData.slice(0, 20)); // Show first 20
-        }
-        
-        function filterMessages(messages) {
-            const category = document.getElementById("categoryFilter").value;
-            const selectedSources = document.getElementById("selectedSources").value;
-            const startDate = document.getElementById("startDate").value;
-            const endDate = document.getElementById("endDate").value;
-            const search = document.getElementById("searchInput").value.toLowerCase();
-            
-            let filtered = messages;
-            
-            // Category filter
-            if (category === 'relevant') {
-                filtered = filtered.filter(m => m.Category === 'Relevant');
-            } else if (category === 'uncategorized') {
-                filtered = filtered.filter(m => m.Category === 'Uncategorized');
-            }
-            
-            // Source filter
-            if (selectedSources !== 'all' && selectedSources) {
-                const sources = selectedSources.split(',');
-                filtered = filtered.filter(m => sources.includes(m['Source Group']));
-            }
-            
-            // Date filter
-            if (startDate && endDate) {
-                filtered = filtered.filter(m => 
-                    m['Message Date'] >= startDate && m['Message Date'] <= endDate
-                );
-            }
-            
-            // Search filter
-            if (search) {
-                filtered = filtered.filter(m => 
-                    m['Full Message'].toLowerCase().includes(search) ||
-                    m['Source Group'].toLowerCase().includes(search)
-                );
-            }
-            
-            // Sort by date (latest first)
-            filtered.sort((a, b) => {
-                const dateA = new Date(a['Message Date'] + ' ' + a['Message Time']);
-                const dateB = new Date(b['Message Date'] + ' ' + b['Message Time']);
-                return dateB - dateA;
-            });
-            
-            return filtered;
-        }
-        
-        // Override the original loadMessages function
-        async function loadMessages() {
-            if (!globalData) {
-                await loadDataFromJSON();
-                return;
-            }
-            
-            const container = document.getElementById("messagesContainer");
-            container.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin fa-2x"></i><p>Filtering messages...</p></div>';
-            
-            setTimeout(() => {
-                const filteredData = filterMessages(globalData.messages);
-                displayMessages(filteredData.slice(0, parseInt(document.getElementById("perPageSelect").value)));
-                document.getElementById("messageCount").textContent = filteredData.length;
-            }, 100);
-        }
-        
-        // Override API calls to use local data
-        async function viewMessage(messageId) {
-            if (!globalData) return;
-            
-            const message = globalData.messages.find(m => m['Message ID'] === messageId);
-            if (message) {
-                // Create a simple modal or new page
-                const newWindow = window.open('', '_blank');
-                newWindow.document.write(`
-                    <!DOCTYPE html>
-                    <html>
-                    <head>
-                        <title>Message Details</title>
-                        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-                    </head>
-                    <body>
-                        <div class="container mt-4">
-                            <h3>${message['Source Group']}</h3>
-                            <p><strong>Date:</strong> ${message['Message Date']} ${message['Message Time']}</p>
-                            <p><strong>Category:</strong> ${message.Category}</p>
-                            <div class="card">
-                                <div class="card-body">
-                                    <pre style="white-space: pre-wrap;">${message['Full Message']}</pre>
-                                </div>
-                            </div>
-                        </div>
-                    </body>
-                    </html>
-                `);
-            }
-        }
-        
-        // Initialize when page loads
-        document.addEventListener("DOMContentLoaded", function() {
-            loadDataFromJSON();
-            
-            // Set default date range (last 7 days)
-            const today = new Date();
-            const weekAgo = new Date();
-            weekAgo.setDate(today.getDate() - 7);
-            
-            document.getElementById("endDate").value = today.toISOString().split("T")[0];
-            document.getElementById("startDate").value = weekAgo.toISOString().split("T")[0];
-        });
+        let all_data = {json.dumps(data_export['messages'], indent=2)};
+        let sources_data = {json.dumps(data_export['sources'], indent=2)};
+        let last_updated = "{data_export['last_updated']}";
     </script>
+    <script src="./static-loader.js"></script>
     """
-    
-    # Insert the script before closing body tag
-    static_html = static_html.replace('</body>', data_loading_script + '\n</body>')
-    
+
+    # Replace the dynamic script with the static one
+    final_html = rendered_html.replace(
+        '<script src="/static/js/dashboard.js"></script>', 
+        static_script
+    )
+
     # Save static index.html
     with open(f"{output_dir}/index.html", 'w', encoding='utf-8') as f:
-        f.write(static_html)
+        f.write(final_html)
+
+    # Create static-loader.js
+    static_loader_content = """
+    document.addEventListener('DOMContentLoaded', () => {
+        // Update stats
+        document.querySelector('.stats-card h3').textContent = stats.total_messages;
+        document.querySelectorAll('.card h3')[1].textContent = stats.relevant_jobs;
+        document.querySelectorAll('.card h3')[2].textContent = stats.uncategorized;
+        document.querySelectorAll('.card h3')[3].textContent = stats.today_count;
+
+        // Update last updated time
+        const lastUpdated = new Date(last_updated);
+        document.getElementById('lastUpdated').innerHTML = 
+            `<i class="fas fa-clock"></i> Updated: ${lastUpdated.toLocaleString()}`;
+
+        // Load sources and messages
+        loadSourcesFromData(sources_data);
+        loadMessagesFromData(all_data);
+    });
+    """
+    with open(f"{output_dir}/static-loader.js", 'w', encoding='utf-8') as f:
+        f.write(static_loader_content)
 
 def copy_assets(output_dir):
     """Copy necessary assets"""
